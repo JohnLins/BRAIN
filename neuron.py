@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import math
-import random
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Deque, Iterable, Sequence, Tuple
+from typing import Deque, Iterable, Tuple
 
 
 Index3D = Tuple[int, int, int]
@@ -12,13 +11,20 @@ QueuedInput = Tuple[float, int]
 
 
 @dataclass
+class Connection:
+    target_index: Index3D
+    weight: float
+    delay_ticks: int
+
+
+@dataclass
 class Neuron:
     index: Index3D
-    weights: Sequence[Sequence[Sequence[float]]]
+    connections: list[Connection]
     input_decay: float
     signal_delay_scale: int = 1
     fire_threshold: float = 1.0
-    refractory_period: int = field(default_factory=lambda: random.randint(1, 10))
+    refractory_period: int = 1
     current_input: float = 0.0
     refractory_remaining: int = 0
     input_queue: Deque[QueuedInput] = field(default_factory=deque)
@@ -31,23 +37,19 @@ class Neuron:
             + (self.index[2] - other_index[2]) ** 2
         )
 
-    def receive_input(self, amount: float, source_index: Index3D) -> int:
-        """Queue an input signal based on its distance from this neuron."""
-        time_until_arrival = max(
-            0,
-            round(self.distance_to(source_index) * self.signal_delay_scale),
-        )
-        self.input_queue.append((amount, time_until_arrival))
-        return time_until_arrival
+    def receive_input(self, amount: float, delay_ticks: int) -> None:
+        """Queue an input signal with a precomputed connection delay."""
+        self.input_queue.append((amount, delay_ticks))
 
     def update(self) -> bool:
         """Advance this neuron by one tick and return True if it fires."""
-        self._advance_input_queue()
-
         if self.refractory_remaining > 0:
+            self._advance_input_queue(accept_arrivals=False)
             self.refractory_remaining -= 1
             self.current_input = max(0.0, self.current_input - self.input_decay)
             return False
+
+        self._advance_input_queue()
 
         if self.current_input >= self.fire_threshold:
             self.fire()
@@ -61,21 +63,26 @@ class Neuron:
         self.current_input = 0.0
         self.refractory_remaining = self.refractory_period
 
-    def outgoing_connections(self) -> Iterable[Tuple[Index3D, float]]:
-        """Yield every output neuron index and its connection weight."""
-        for i, plane in enumerate(self.weights):
-            for j, row in enumerate(plane):
-                for k, weight in enumerate(row):
-                    yield (i, j, k), weight
+    def outgoing_connections(self) -> Iterable[Connection]:
+        """Yield this neuron's sparse outgoing connections."""
+        yield from self.connections
 
-    def _advance_input_queue(self) -> None:
+    def connection_to(self, target_index: Index3D) -> Connection | None:
+        for connection in self.connections:
+            if connection.target_index == target_index:
+                return connection
+
+        return None
+
+    def _advance_input_queue(self, accept_arrivals: bool = True) -> None:
         remaining_inputs: Deque[QueuedInput] = deque()
 
         while self.input_queue:
             amount, time_until_arrival = self.input_queue.popleft()
 
             if time_until_arrival <= 1:
-                self.current_input += amount
+                if accept_arrivals:
+                    self.current_input += amount
             else:
                 remaining_inputs.append((amount, time_until_arrival - 1))
 

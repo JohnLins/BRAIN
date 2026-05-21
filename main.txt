@@ -24,3 +24,11 @@ def main():
         # so it's like a game loop where each iteration is like a milisecond
         # each neuron doesn't store it's own clock, it just has some value that gets subtracted from each iteration, this is how we handel time (different refactory periods or time-till-arrival in the input queue)
 
+
+
+
+
+
+Training:
+neurons that fire together during good behavior wire together
+neurons that fire together during bad behavior weaken or change
