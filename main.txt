@@ -1,0 +1,26 @@
+class neuron:
+    index: (i,j,k) in 3d space
+
+    weights: [[[],[]..], [[],[]..]] #a 3d tensor where every value is between 0 to 1 and the index of the list is the index of the neuron at the output (includes a connection to itself)
+
+    refactory_period: a value that determines how long after a fire this neuron will ignore inputs (randomly initalized at birth)
+
+    input_queue: queue of reciving inputs along with the time-till-arrival determined by length
+
+    current_input
+
+    input_decay: how quickly you subtract from current_input
+
+
+
+the length between neurons is computed from the euclidience distance of their indexes, this determines how long it takes before the signal gets to the other neuron
+
+
+
+
+def main():
+
+    while True:
+        # so it's like a game loop where each iteration is like a milisecond
+        # each neuron doesn't store it's own clock, it just has some value that gets subtracted from each iteration, this is how we handel time (different refactory periods or time-till-arrival in the input queue)
+
