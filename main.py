@@ -13,13 +13,12 @@ from neuron import Connection, Index3D, Neuron
 
 
 GRID_SIZE = 4
-FRAME_INTERVAL_MS = 30
+FRAME_INTERVAL_MS = 1
 INPUT_DECAY = 0.01
 SIGNAL_DELAY_SCALE = 8
 INPUT_STIMULUS = 1.25
 MIN_FIRE_THRESHOLD = 0.35
 MAX_FIRE_THRESHOLD = 0.8
-SHOW_INPUT_LABELS = False
 SHOW_SIGNAL_DOTS = True
 SHOW_CONNECTION_LINES = True
 SIGNAL_DOT_SIZE = 1
@@ -239,13 +238,6 @@ def create_training_target() -> TrainingTarget:
 def inject_input_pattern(neurons: Dict[Index3D, Neuron], pattern: list[float]) -> None:
     for index, value in zip(INPUT_NEURONS, pattern):
         neurons[index].current_input += value * INPUT_STIMULUS
-
-
-def reset_neuron_activity(neurons: Dict[Index3D, Neuron]) -> None:
-    for neuron in neurons.values():
-        neuron.current_input = 0.0
-        neuron.refractory_remaining = 0
-        neuron.input_queue.clear()
 
 
 def simulation_step(
@@ -548,30 +540,41 @@ def main() -> None:
             s=SIGNAL_DOT_SIZE,
             depthshade=False,
         )
-    input_labels = []
-    if SHOW_INPUT_LABELS:
-        input_labels = [
-            ax.text(
-                x + 0.08,
-                y + 0.08,
-                z + 0.08,
-                f"{neurons[index].current_input:.2f}",
-                fontsize=7,
-            )
-            for index, x, y, z in zip(indexes, xs, ys, zs)
-        ]
+    input_labels = [
+        ax.text(
+            index[0] - 0.85,
+            index[1] - 0.55,
+            index[2],
+            f"input {input_index + 1}",
+            fontsize=8,
+            color="green",
+        )
+        for input_index, index in enumerate(INPUT_NEURONS)
+    ]
+    output_labels = [
+        ax.text(
+            index[0] + 0.65,
+            index[1] + 0.45,
+            index[2],
+            f"output {output_index + 1}\ncount=0",
+            fontsize=8,
+            color="purple",
+        )
+        for output_index, index in enumerate(OUTPUT_NEURONS)
+    ]
 
     ax.set_xlim(-0.5, GRID_SIZE - 0.5)
     ax.set_ylim(-0.5, GRID_SIZE - 0.5)
     ax.set_zlim(-0.5, GRID_SIZE - 0.5)
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
+    # ax.set_xlabel("x")
+    # ax.set_ylabel("y")
+    # ax.set_zlabel("z")
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_zticklabels([])
 
     def animate(tick: int) -> tuple[object]:
         if not trial_state.trial_started:
-            reset_neuron_activity(neurons)
-            active_signals.clear()
             inject_input_pattern(neurons, training_target.input_pattern)
 
         if SHOW_SIGNAL_DOTS:
@@ -639,25 +642,28 @@ def main() -> None:
             signal_scatter._offsets3d = signal_positions(active_signals)
             signal_scatter.set_color(signal_colors(active_signals))
             artists.append(signal_scatter)
-        if SHOW_INPUT_LABELS:
-            for label, index in zip(input_labels, indexes):
-                label.set_text(f"{neurons[index].current_input:.2f}")
-            artists.extend(input_labels)
+        for output_index, label in enumerate(output_labels):
+            label.set_text(
+                f"output {output_index + 1}\n"
+                f"count={trial_state.output_counts[output_index]}"
+            )
+        artists.extend(input_labels)
+        artists.extend(output_labels)
         if not trial_state.trial_started:
             phase = "stimulate"
         elif trial_state.measurement_started:
             phase = "measure"
         else:
             phase = "wait"
-        ax.set_title(
-            f"tick={tick} phase={phase} "
-            f"input={training_target.input_pattern} "
-            f"expected={training_target.expected_output}\n"
-            f"counts={trial_state.output_counts} "
-            f"l1={format_output_distribution(trial_state.last_output_distribution)} "
-            f"reward={trial_state.last_reward:.3f} "
-            f"delta={trial_state.last_reward_delta:.3f}"
-        )
+        # ax.set_title(
+        #     f"tick={tick} phase={phase} "
+        #     f"input={training_target.input_pattern} "
+        #     f"expected={training_target.expected_output}\n"
+        #     f"counts={trial_state.output_counts} "
+        #     f"l1={format_output_distribution(trial_state.last_output_distribution)} "
+        #     f"reward={trial_state.last_reward:.3f} "
+        #     f"delta={trial_state.last_reward_delta:.3f}"
+        # )
         return tuple(artists)
 
     animation = FuncAnimation(
